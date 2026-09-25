@@ -7,13 +7,26 @@ import { Pool } from 'pg';
 function createPool() {
   const connectionString = process.env.DATABASE_URL;
   if (connectionString) {
+    let connection = connectionString;
+    let sslmode: string | null = null;
+    try {
+      const url = new URL(connectionString);
+      sslmode = url.searchParams.get('sslmode');
+      url.searchParams.delete('sslmode');
+      connection = url.toString();
+    } catch {
+      connection = connectionString
+        .replace(/([?&])sslmode=[^&]*/g, '$1')
+        .replace(/[?&]$/, '');
+    }
     const internal = connectionString.includes('railway.internal');
     const local =
       connectionString.includes('localhost') ||
       connectionString.includes('127.0.0.1');
+    const useSsl = !local && !internal && sslmode !== 'disable';
     return new Pool({
-      connectionString,
-      ssl: !local && !internal ? { rejectUnauthorized: false } : undefined,
+      connectionString: connection,
+      ssl: useSsl ? { rejectUnauthorized: false } : undefined,
     });
   }
   return new Pool({
