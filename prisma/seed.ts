@@ -97,7 +97,7 @@ async function main() {
     data: {
       name: 'City Link Premier Cup 2026',
       description:
-        'City Linkùs flagship T20 tournament. Watch live streams and match replays on YouTube, plus match-day photos.',
+        'City Link flagship T20 tournament. Watch live streams and match replays on YouTube, plus match-day photos.',
       thumbnail: stadiumNight,
       startDate: new Date(now.getTime() - 4 * 86400000),
       endDate: new Date(now.getTime() + 18 * 86400000),
@@ -129,7 +129,7 @@ async function main() {
       description:
         'Live T20 clash. City Link is streaming this match on YouTube. Open Watch Live for the official broadcast.',
       status: 'LIVE',
-      youtubeVideoId: 'M7lc1UVf-VE',
+      youtubeVideoId: 'xD_URGjp5KE',
       featured: true,
       published: true,
       photos: {
@@ -191,7 +191,7 @@ async function main() {
       description:
         'Completed match. Watch the official replay and browse match photos from the ground.',
       status: 'COMPLETED',
-      youtubeVideoId: 'aqz-KE-bpKQ',
+      youtubeVideoId: 'GdR5M1Q2_GU',
       featured: true,
       published: true,
       photos: {
@@ -220,7 +220,7 @@ async function main() {
       description:
         'Replay available. This completed match also includes a photo gallery from the venue.',
       status: 'COMPLETED',
-      youtubeVideoId: 'jNQXAC9IVRw',
+      youtubeVideoId: '5o2FGjx1mOE',
       published: true,
       photos: {
         create: [
@@ -257,7 +257,7 @@ async function main() {
         description:
           'A recap of the live City Link Premier Cup match, bowling changes, and what to watch in the next fixture.',
         thumbnail: newsMic,
-        youtubeVideoId: 'M7lc1UVf-VE',
+        youtubeVideoId: 'arD4VflRTLE',
         publishedAt: new Date(now.getTime() - 3 * 3600000),
         featured: true,
         published: true,
@@ -267,7 +267,7 @@ async function main() {
         description:
           'Dates, venues and streaming notes for the next round of the Aurangabad T20 Series on City Link.',
         thumbnail: newsStudio,
-        youtubeVideoId: 'aqz-KE-bpKQ',
+        youtubeVideoId: '8ENslhaJJWU',
         publishedAt: new Date(now.getTime() - 86400000),
         published: true,
       },
@@ -276,7 +276,7 @@ async function main() {
         description:
           'City Link uses YouTube for live and replay delivery. This clip explains where to find matches, photos and news.',
         thumbnail: stadiumNight,
-        youtubeVideoId: 'jNQXAC9IVRw',
+        youtubeVideoId: 'xD_URGjp5KE',
         publishedAt: new Date(now.getTime() - 2 * 86400000),
         published: true,
       },
