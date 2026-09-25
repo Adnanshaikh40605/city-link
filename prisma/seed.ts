@@ -27,6 +27,12 @@ const newsMic =
   'https://images.unsplash.com/photo-1588681664899-f142ff2dc9b1?auto=format&fit=crop&w=1200&q=80';
 
 async function main() {
+  const existingUsers = await prisma.user.count();
+  if (existingUsers > 0 && process.env.SEED_FORCE !== 'true') {
+    console.log('Database already has users; skipping seed.');
+    return;
+  }
+
   console.log('Seeding City Link Phase 2 test data...');
 
   await prisma.watchHistory.deleteMany();
