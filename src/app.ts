@@ -16,7 +16,7 @@ export function createApp() {
   app.use(express.json({ limit: '1mb' }));
 
   app.get('/health', (_req, res) => {
-    res.json({ ok: true, service: 'city-link-api', phase: 2 });
+    res.json({ ok: true, service: 'city-link-api', phase: 3 });
   });
 
   app.use('/auth', authRoutes);

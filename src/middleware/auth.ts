@@ -52,11 +52,11 @@ export async function requireAdmin(
   if (!req.auth) {
     return res.status(401).json({ error: 'Authentication required.' });
   }
-  if (req.auth.role !== 'ADMIN') {
-    const user = await prisma.user.findUnique({ where: { id: req.auth.sub } });
-    if (!user || user.role !== 'ADMIN') {
-      return res.status(403).json({ error: 'Admin access required.' });
-    }
+  // Always re-check the database so demotions and disabled accounts take effect immediately.
+  const user = await prisma.user.findUnique({ where: { id: req.auth.sub } });
+  if (!user || user.role !== 'ADMIN' || user.status !== 'active') {
+    return res.status(403).json({ error: 'Admin access required.' });
   }
+  req.auth = { ...req.auth, role: user.role };
   return next();
 }

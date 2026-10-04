@@ -46,9 +46,12 @@ export function serializePhoto(p: Photo) {
   };
 }
 
-export function serializeMatch(m: MatchWithRelations) {
+function serializeMatchInternal(
+  m: MatchWithRelations,
+  includeUnpublishedPhotos: boolean,
+) {
   const photos = (m.photos ?? [])
-    .filter((p) => p.published)
+    .filter((p) => includeUnpublishedPhotos || p.published)
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .map(serializePhoto);
 
@@ -74,6 +77,14 @@ export function serializeMatch(m: MatchWithRelations) {
     createdAt: m.createdAt.toISOString(),
     updatedAt: m.updatedAt.toISOString(),
   };
+}
+
+export function serializeMatch(m: MatchWithRelations) {
+  return serializeMatchInternal(m, false);
+}
+
+export function serializeMatchAdmin(m: MatchWithRelations) {
+  return serializeMatchInternal(m, true);
 }
 
 export function serializeNews(n: News) {
