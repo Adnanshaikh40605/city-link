@@ -15,6 +15,7 @@ import {
   requireAdmin,
   type AuthedRequest,
 } from '../middleware/auth.js';
+import { filePublicUrl, imageUpload } from '../lib/uploads.js';
 
 /**
  * Phase 3 Admin APIs — all routes require an active ADMIN role.
@@ -629,6 +630,28 @@ router.patch('/users/:id', async (req: AuthedRequest, res) => {
     data: parsed.data,
   });
   return res.json({ user: publicUser(user) });
+});
+
+// ??? Uploads ?????????????????????????????????????????????????????????????????
+
+router.post('/uploads', (req, res) => {
+  imageUpload.single('file')(req, res, (err: unknown) => {
+    if (err) {
+      const message =
+        err instanceof Error ? err.message : 'Could not upload image.';
+      return res.status(400).json({ error: message });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'Choose an image file to upload.' });
+    }
+    const url = filePublicUrl(req, req.file.filename);
+    return res.status(201).json({
+      url,
+      filename: req.file.filename,
+      size: req.file.size,
+      mimeType: req.file.mimetype,
+    });
+  });
 });
 
 export default router;
