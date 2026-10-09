@@ -20,10 +20,35 @@ const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
   filename: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
-    const safeExt = ['.jpg', '.jpeg', '.png', '.webp', '.gif'].includes(ext)
+    const safeExt = [
+      '.jpg',
+      '.jpeg',
+      '.png',
+      '.webp',
+      '.gif',
+      '.mp4',
+      '.webm',
+      '.mov',
+    ].includes(ext)
       ? ext
-      : '.jpg';
+      : '.bin';
     cb(null, `${Date.now()}-${Math.random().toString(36).slice(2, 10)}${safeExt}`);
+  },
+});
+
+const videoTypes = new Set(['video/mp4', 'video/webm', 'video/quicktime']);
+
+export const videoUpload = multer({
+  storage,
+  limits: { fileSize: 200 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (!videoTypes.has(file.mimetype)) {
+      cb(new Error('Only MP4, WebM, or MOV video files are allowed.'));
+      return;
+    }
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, true);
+    void ext;
   },
 });
 

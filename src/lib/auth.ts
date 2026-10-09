@@ -39,8 +39,12 @@ export function publicUser(user: User) {
   return {
     id: user.id,
     name: user.name,
+    nickname: user.nickname || user.name,
+    username: user.username,
     email: user.email,
     phone: user.phone,
+    followers: 0,
+    following: 0,
     profileImage: user.profileImage,
     photoUrl: user.profileImage,
     role: user.role,

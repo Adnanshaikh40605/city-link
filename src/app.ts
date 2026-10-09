@@ -9,6 +9,7 @@ import newsRoutes from './routes/news.js';
 import profileRoutes from './routes/profile.js';
 import watchHistoryRoutes from './routes/watchHistory.js';
 import adminRoutes from './routes/admin.js';
+import showsRoutes from './routes/shows.js';
 import { UPLOAD_DIR } from './lib/uploads.js';
 
 export function createApp() {
@@ -29,6 +30,7 @@ export function createApp() {
   app.use('/news', newsRoutes);
   app.use('/profile', profileRoutes);
   app.use('/watch-history', watchHistoryRoutes);
+  app.use('/shows', showsRoutes);
   app.use('/admin', adminRoutes);
 
   app.use(

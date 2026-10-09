@@ -23,10 +23,24 @@ enum ContentType {
   NEWS
 }
 
+enum VideoSource {
+  YOUTUBE
+  UPLOAD
+}
+
+enum ShowCategory {
+  EVENTS
+  PODCAST
+  FILMS
+  EDUCATION
+}
+
 model User {
   id           String         @id @default(cuid())
   name         String
   email        String         @unique
+  username     String?        @unique
+  nickname     String?
   passwordHash String
   profileImage String?
   phone        String         @default("")
@@ -74,7 +88,9 @@ model Match {
   thumbnail      String      @default("")
   description    String      @default("")
   status         MatchStatus @default(UPCOMING)
+  videoSource    VideoSource @default(YOUTUBE)
   youtubeVideoId String?
+  videoFileUrl   String?
   featured       Boolean     @default(false)
   published      Boolean     @default(true)
   createdAt      DateTime    @default(now())
@@ -111,6 +127,37 @@ model News {
   published      Boolean  @default(true)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+}
+
+model Show {
+  id             String       @id @default(cuid())
+  title          String
+  description    String       @default("")
+  category       ShowCategory @default(EVENTS)
+  videoSource    VideoSource  @default(YOUTUBE)
+  youtubeVideoId String?
+  videoFileUrl   String?
+  thumbnail      String       @default("")
+  duration       String       @default("")
+  views          Int          @default(0)
+  featured       Boolean      @default(false)
+  published      Boolean      @default(false)
+  publishedAt    DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([category, published])
+}
+
+model Broadcast {
+  id          String   @id @default(cuid())
+  title       String
+  message     String
+  published   Boolean  @default(true)
+  publishedAt DateTime @default(now())
+  pushStatus  String   @default("pending")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model WatchHistory {

@@ -15,7 +15,8 @@ import {
   requireAdmin,
   type AuthedRequest,
 } from '../middleware/auth.js';
-import { filePublicUrl, imageUpload } from '../lib/uploads.js';
+import { filePublicUrl, imageUpload, videoUpload } from '../lib/uploads.js';
+import { extractYoutubeId } from '../lib/youtube.js';
 
 /**
  * Phase 3 Admin APIs — all routes require an active ADMIN role.
@@ -265,7 +266,9 @@ router.post('/matches', async (req, res) => {
     thumbnail: z.string().optional().default(''),
     description: z.string().optional().default(''),
     status: matchStatusSchema.optional().default('UPCOMING'),
+    videoSource: z.enum(['YOUTUBE', 'UPLOAD']).optional().default('YOUTUBE'),
     youtubeVideoId: z.string().nullable().optional(),
+    videoFileUrl: z.string().nullable().optional(),
     featured: z.boolean().optional().default(false),
     published: z.boolean().optional().default(true),
   });
@@ -282,6 +285,7 @@ router.post('/matches', async (req, res) => {
   const m = await prisma.match.create({
     data: {
       ...parsed.data,
+      youtubeVideoId: extractYoutubeId(parsed.data.youtubeVideoId),
       startAt: new Date(parsed.data.startAt),
       status: parsed.data.status as MatchStatus,
     },
@@ -301,7 +305,9 @@ router.patch('/matches/:id', async (req, res) => {
     thumbnail: z.string().optional(),
     description: z.string().optional(),
     status: matchStatusSchema.optional(),
+    videoSource: z.enum(['YOUTUBE', 'UPLOAD']).optional(),
     youtubeVideoId: z.string().nullable().optional(),
+    videoFileUrl: z.string().nullable().optional(),
     featured: z.boolean().optional(),
     published: z.boolean().optional(),
     tournamentId: z.string().optional(),
@@ -323,6 +329,10 @@ router.patch('/matches/:id', async (req, res) => {
       where: { id: req.params.id },
       data: {
         ...parsed.data,
+        youtubeVideoId:
+          parsed.data.youtubeVideoId === undefined
+            ? undefined
+            : extractYoutubeId(parsed.data.youtubeVideoId),
         startAt: parsed.data.startAt ? new Date(parsed.data.startAt) : undefined,
         status: parsed.data.status as MatchStatus | undefined,
       },
@@ -562,6 +572,8 @@ router.get('/users', async (req, res) => {
       ? {
           OR: [
             { name: { contains: q, mode: 'insensitive' } },
+            { nickname: { contains: q, mode: 'insensitive' } },
+            { username: { contains: q, mode: 'insensitive' } },
             { email: { contains: q, mode: 'insensitive' } },
             { phone: { contains: q, mode: 'insensitive' } },
           ],
@@ -634,6 +646,249 @@ router.patch('/users/:id', async (req: AuthedRequest, res) => {
 
 // ??? Uploads ?????????????????????????????????????????????????????????????????
 
+const showCategory = z.enum(['EVENTS', 'PODCAST', 'FILMS', 'EDUCATION']);
+const videoSource = z.enum(['YOUTUBE', 'UPLOAD']);
+
+function serializeShow(row: {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  videoSource: string;
+  youtubeVideoId: string | null;
+  videoFileUrl: string | null;
+  thumbnail: string;
+  duration: string;
+  views: number;
+  featured: boolean;
+  published: boolean;
+  publishedAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}) {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    category: row.category,
+    videoSource: row.videoSource,
+    youtubeVideoId: row.youtubeVideoId,
+    youtubeId: row.youtubeVideoId,
+    videoFileUrl: row.videoFileUrl,
+    thumbnail: row.thumbnail,
+    thumbnailUrl: row.thumbnail,
+    duration: row.duration,
+    views: row.views,
+    featured: row.featured,
+    published: row.published,
+    publishedAt: row.publishedAt.toISOString(),
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+router.get('/shows', async (req, res) => {
+  const { page, limit, skip } = parsePageLimit(req.query as Record<string, unknown>);
+  const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+  const category =
+    typeof req.query.category === 'string' ? req.query.category : undefined;
+  const published = boolFromQuery(req.query.published);
+  const where: Prisma.ShowWhereInput = {
+    ...(published === undefined ? {} : { published }),
+    ...(category && showCategory.safeParse(category).success
+      ? { category: category as Prisma.ShowWhereInput['category'] }
+      : {}),
+    ...(q
+      ? {
+          OR: [
+            { title: { contains: q, mode: 'insensitive' } },
+            { description: { contains: q, mode: 'insensitive' } },
+          ],
+        }
+      : {}),
+  };
+  const [total, rows] = await Promise.all([
+    prisma.show.count({ where }),
+    prisma.show.findMany({
+      where,
+      orderBy: { publishedAt: 'desc' },
+      skip,
+      take: limit,
+    }),
+  ]);
+  return res.json({
+    data: rows.map(serializeShow),
+    ...pageMeta(total, page, limit),
+  });
+});
+
+router.post('/shows', async (req, res) => {
+  const schema = z.object({
+    title: z.string().min(2),
+    description: z.string().optional().default(''),
+    category: showCategory.optional().default('EVENTS'),
+    videoSource: videoSource.optional().default('YOUTUBE'),
+    youtubeVideoId: z.string().nullable().optional(),
+    videoFileUrl: z.string().nullable().optional(),
+    thumbnail: z.string().optional().default(''),
+    duration: z.string().optional().default(''),
+    views: z.number().int().nonnegative().optional().default(0),
+    featured: z.boolean().optional().default(false),
+    published: z.boolean().optional().default(false),
+    publishedAt: z.string().datetime().optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Invalid video payload.' });
+  }
+  const row = await prisma.show.create({
+    data: {
+      ...parsed.data,
+      youtubeVideoId: extractYoutubeId(parsed.data.youtubeVideoId),
+      publishedAt: parsed.data.publishedAt
+        ? new Date(parsed.data.publishedAt)
+        : new Date(),
+    },
+  });
+  return res.status(201).json({ show: serializeShow(row) });
+});
+
+router.patch('/shows/:id', async (req, res) => {
+  const schema = z.object({
+    title: z.string().min(2).optional(),
+    description: z.string().optional(),
+    category: showCategory.optional(),
+    videoSource: videoSource.optional(),
+    youtubeVideoId: z.string().nullable().optional(),
+    videoFileUrl: z.string().nullable().optional(),
+    thumbnail: z.string().optional(),
+    duration: z.string().optional(),
+    views: z.number().int().nonnegative().optional(),
+    featured: z.boolean().optional(),
+    published: z.boolean().optional(),
+    publishedAt: z.string().datetime().optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Invalid video update.' });
+  }
+  try {
+    const row = await prisma.show.update({
+      where: { id: req.params.id },
+      data: {
+        ...parsed.data,
+        youtubeVideoId:
+          parsed.data.youtubeVideoId === undefined
+            ? undefined
+            : extractYoutubeId(parsed.data.youtubeVideoId),
+        publishedAt: parsed.data.publishedAt
+          ? new Date(parsed.data.publishedAt)
+          : undefined,
+      },
+    });
+    return res.json({ show: serializeShow(row) });
+  } catch {
+    return res.status(404).json({ error: 'Video not found.' });
+  }
+});
+
+router.delete('/shows/:id', async (req, res) => {
+  try {
+    await prisma.show.delete({ where: { id: req.params.id } });
+    return res.json({ ok: true });
+  } catch {
+    return res.status(404).json({ error: 'Video not found.' });
+  }
+});
+
+async function dispatchPush(title: string, message: string) {
+  const key = process.env.FCM_SERVER_KEY;
+  if (!key) {
+    return 'skipped_no_fcm_key';
+  }
+  const response = await fetch('https://fcm.googleapis.com/fcm/send', {
+    method: 'POST',
+    headers: {
+      Authorization: `key=${key}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      to: '/topics/citylink',
+      notification: { title, body: message },
+      data: { type: 'update', title, message },
+    }),
+  });
+  return response.ok ? 'sent' : `failed_${response.status}`;
+}
+
+router.get('/broadcasts', async (req, res) => {
+  const { page, limit, skip } = parsePageLimit(req.query as Record<string, unknown>);
+  const [total, rows] = await Promise.all([
+    prisma.broadcast.count(),
+    prisma.broadcast.findMany({
+      orderBy: { publishedAt: 'desc' },
+      skip,
+      take: limit,
+    }),
+  ]);
+  return res.json({
+    data: rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      message: row.message,
+      published: row.published,
+      publishedAt: row.publishedAt.toISOString(),
+      pushStatus: row.pushStatus,
+      createdAt: row.createdAt.toISOString(),
+    })),
+    ...pageMeta(total, page, limit),
+  });
+});
+
+router.post('/broadcasts', async (req, res) => {
+  const schema = z.object({
+    title: z.string().min(2),
+    message: z.string().min(2),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Title and message are required.' });
+  }
+  let pushStatus = 'pending';
+  try {
+    pushStatus = await dispatchPush(parsed.data.title, parsed.data.message);
+  } catch {
+    pushStatus = 'failed';
+  }
+  const row = await prisma.broadcast.create({
+    data: {
+      title: parsed.data.title,
+      message: parsed.data.message,
+      published: true,
+      pushStatus,
+    },
+  });
+  return res.status(201).json({
+    broadcast: {
+      id: row.id,
+      title: row.title,
+      message: row.message,
+      published: row.published,
+      publishedAt: row.publishedAt.toISOString(),
+      pushStatus: row.pushStatus,
+    },
+  });
+});
+
+router.delete('/broadcasts/:id', async (req, res) => {
+  try {
+    await prisma.broadcast.delete({ where: { id: req.params.id } });
+    return res.json({ ok: true });
+  } catch {
+    return res.status(404).json({ error: 'Update not found.' });
+  }
+});
+
 router.post('/uploads', (req, res) => {
   imageUpload.single('file')(req, res, (err: unknown) => {
     if (err) {
@@ -647,6 +902,25 @@ router.post('/uploads', (req, res) => {
     const url = filePublicUrl(req, req.file.filename);
     return res.status(201).json({
       url,
+      filename: req.file.filename,
+      size: req.file.size,
+      mimeType: req.file.mimetype,
+    });
+  });
+});
+
+router.post('/uploads/video', (req, res) => {
+  videoUpload.single('file')(req, res, (err: unknown) => {
+    if (err) {
+      const message =
+        err instanceof Error ? err.message : 'Could not upload video.';
+      return res.status(400).json({ error: message });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'Choose a video file to upload.' });
+    }
+    return res.status(201).json({
+      url: filePublicUrl(req, req.file.filename),
       filename: req.file.filename,
       size: req.file.size,
       mimeType: req.file.mimetype,
